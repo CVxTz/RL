@@ -6,27 +6,35 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import models
 from tqdm import tqdm
+import cv2
 
 
 class Model(torch.nn.Module):
     def __init__(self, n=4, channels=3):
         super(Model, self).__init__()
-        self.cnn = torch.nn.Conv2d(channels, 3, kernel_size=3)
-        self.resnet = models.resnet18(pretrained=False)
-        self.fc = torch.nn.Linear(1000, n)
+        self.cnn1 = torch.nn.Conv2d(channels, 32, kernel_size=8, stride=4)
+        self.cnn2 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.cnn3 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
+
+        self.fc = torch.nn.Linear(3136, n)
 
     def forward(self, x):
-        x = self.cnn(x)
-        x = self.resnet(x)
+        x = F.relu(self.cnn1(x))
+        x = F.relu(self.cnn2(x))
+        x = F.relu(self.cnn3(x))
+        x = torch.flatten(x, start_dim=1)
         y = self.fc(x)
 
         return y
 
 
 def to_gray(obs):
-    return obs.mean(axis=-1)
+    return obs.astype(np.float).mean(axis=-1)
+
+
+def resize(obs):
+    return cv2.resize(obs, dsize=(84, 84), interpolation=cv2.INTER_NEAREST)
 
 
 def get_state(l_obs, frames=3):
@@ -83,6 +91,7 @@ def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_
     done = torch.from_numpy(done).float()
 
     states = states.permute(0, 3, 1, 2)
+
     future_states = future_states.permute(0, 3, 1, 2)
 
     states = states.to(device)
@@ -140,7 +149,7 @@ for i_episode in tqdm(range(n_episodes)):
 
     observation = env.reset()
 
-    observations.append(to_gray(observation))
+    observations.append(resize(to_gray(observation)))
 
     for t in tqdm(range(episode_len)):
         current_ite += 1
@@ -156,8 +165,11 @@ for i_episode in tqdm(range(n_episodes)):
 
         observation, reward, done, info = env.step(action)
 
-        observations.append(to_gray(observation))
+        observations.append(resize(to_gray(observation)))
+
         future_state = get_state(observations)
+
+        #cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
 
         replay.append((state, future_state, action, reward, done))
 
