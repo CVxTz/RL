@@ -70,7 +70,7 @@ def predict_action(model, state):
     return action
 
 
-def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_it=0):
+def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_it=0, clip=2.):
     model.train()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -111,34 +111,46 @@ def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_
     y = rewards + gamma * done * q_s_prime_a
 
     optimizer.zero_grad()
-    loss = F.smooth_l1_loss(q_s_a, y)
+    loss = F.mse_loss(q_s_a, y)
 
     if current_it % 1000 == 0:
         print("loss", loss.float(), "q_s_a", q_s_a[0].float())
 
     loss.backward()
+
+    torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+
     optimizer.step()
 
 
 replay = []
 episods_rewards = []
 render = False
-max_replay = 30000
-update_target_weight_freq = 2000
+max_replay = 40000
+update_target_weight_freq = 50000
 current_ite = 1
 
 frequency_update_model = 5
 
-n_episodes = 10000
+n_episodes = 100000
 episode_len = 10000
 
 epsilon = 0.1
+
+model_path = "../logs/model.pkl"
+json_path = "../logs/episodes_rewards.json"
 
 env = gym.make('Breakout-v0')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = Model(n=env.action_space.n).to(device)
 target_model = Model(n=env.action_space.n).to(device)
+
+try:
+    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path))
+except:
+    print("No model to load")
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
@@ -158,7 +170,7 @@ for i_episode in tqdm(range(n_episodes)):
 
         state = get_state(observations)
 
-        if random.uniform(0, 1) < epsilon or current_ite < 2 * update_target_weight_freq:
+        if random.uniform(0, 1) < epsilon or current_ite < update_target_weight_freq + 10:
             action = env.action_space.sample()
         else:
             action = predict_action(target_model, state)
@@ -169,7 +181,7 @@ for i_episode in tqdm(range(n_episodes)):
 
         future_state = get_state(observations)
 
-        #cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
+        # cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
 
         replay.append((state, future_state, action, reward, done))
 
@@ -187,10 +199,10 @@ for i_episode in tqdm(range(n_episodes)):
     episods_rewards.append(np.sum(rewards))
 
     if i_episode % 10 == 0:
-        save_rewards(episods_rewards, out_path="../logs/episodes_rewards.json")
-        torch.save(model.state_dict(), "../logs/model.pkl")
+        save_rewards(episods_rewards, out_path=json_path)
+        torch.save(model.state_dict(), model_path)
 
-    replay = replay[-max_replay:]
+    replay = replay[-max_replay // 2:]
 
     del observations
     del rewards
