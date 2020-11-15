@@ -55,10 +55,8 @@ def save_rewards(episods_rewards, out_path="../logs/episodes_rewards.json"):
         json.dump(episods_rewards, f, indent=4)
 
 
-def predict_action(model, state):
+def predict_action(model, state, device):
     model.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     state = torch.from_numpy(state).float()
     state = state.to(device)
     state = state.permute(2, 0, 1)
@@ -70,10 +68,9 @@ def predict_action(model, state):
     return action
 
 
-def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_it=0, clip=2.):
+def train_on_batch(model, optimizer, device, replay, batch_size=32, gamma=0.99, current_it=0, clip=2.):
     model.train()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     indexes = np.random.randint(0, len(replay), batch_size).tolist()
     batch = [replay[idx] for idx in indexes]
     states = np.array([a[0] for a in batch])
@@ -123,88 +120,91 @@ def train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_
     optimizer.step()
 
 
-replay = []
-episods_rewards = []
-render = False
-max_replay = 40000
-update_target_weight_freq = 50000
-current_ite = 1
+if __name__ == "__main__":
 
-frequency_update_model = 5
 
-n_episodes = 100000
-episode_len = 10000
+    replay = []
+    episods_rewards = []
+    render = False
+    max_replay = 40000
+    update_target_weight_freq = 50000
+    current_ite = 1
 
-epsilon = 0.1
+    frequency_update_model = 5
 
-model_path = "../logs/model.pkl"
-json_path = "../logs/episodes_rewards.json"
+    n_episodes = 100000
+    episode_len = 10000
 
-env = gym.make('Breakout-v0')
+    epsilon = 0.1
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Model(n=env.action_space.n).to(device)
-target_model = Model(n=env.action_space.n).to(device)
+    model_path = "../logs/model.pkl"
+    json_path = "../logs/episodes_rewards.json"
 
-try:
-    model.load_state_dict(torch.load(model_path))
-    model.load_state_dict(torch.load(model_path))
-except:
-    print("No model to load")
+    env = gym.make('Breakout-v0')
 
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = Model(n=env.action_space.n).to(device)
+    target_model = Model(n=env.action_space.n).to(device)
 
-for i_episode in tqdm(range(n_episodes)):
+    try:
+        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path))
+    except:
+        print("No model to load")
 
-    observations = []
-    rewards = []
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-    observation = env.reset()
+    for i_episode in tqdm(range(n_episodes)):
 
-    observations.append(resize(to_gray(observation)))
+        observations = []
+        rewards = []
 
-    for t in tqdm(range(episode_len)):
-        current_ite += 1
-        if render:
-            env.render()
-
-        state = get_state(observations)
-
-        if random.uniform(0, 1) < epsilon or current_ite < update_target_weight_freq + 10:
-            action = env.action_space.sample()
-        else:
-            action = predict_action(target_model, state)
-
-        observation, reward, done, info = env.step(action)
+        observation = env.reset()
 
         observations.append(resize(to_gray(observation)))
 
-        future_state = get_state(observations)
+        for t in tqdm(range(episode_len)):
+            current_ite += 1
+            if render:
+                env.render()
 
-        # cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
+            state = get_state(observations)
 
-        replay.append((state, future_state, action, reward, done))
+            if random.uniform(0, 1) < epsilon or current_ite < update_target_weight_freq + 10:
+                action = env.action_space.sample()
+            else:
+                action = predict_action(target_model, state, device)
 
-        rewards.append(reward)
+            observation, reward, done, info = env.step(action)
 
-        if done:
-            break
+            observations.append(resize(to_gray(observation)))
 
-        if current_ite % update_target_weight_freq == 0:
-            target_model.load_state_dict(model.state_dict())
+            future_state = get_state(observations)
 
-        if current_ite > 32 and current_ite % frequency_update_model == 0:
-            train_on_batch(model, optimizer, replay, batch_size=32, gamma=0.99, current_it=current_ite)
+            # cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
 
-    episods_rewards.append(np.sum(rewards))
+            replay.append((state, future_state, action, reward, done))
 
-    if i_episode % 10 == 0:
-        save_rewards(episods_rewards, out_path=json_path)
-        torch.save(model.state_dict(), model_path)
+            rewards.append(reward)
 
-    replay = replay[-max_replay // 2:]
+            if done:
+                break
 
-    del observations
-    del rewards
+            if current_ite % update_target_weight_freq == 0:
+                target_model.load_state_dict(model.state_dict())
 
-env.close()
+            if current_ite > 32 and current_ite % frequency_update_model == 0:
+                train_on_batch(model, optimizer, device, replay, batch_size=32, gamma=0.99, current_it=current_ite)
+
+        episods_rewards.append(np.sum(rewards))
+
+        if i_episode % 10 == 0:
+            save_rewards(episods_rewards, out_path=json_path)
+            torch.save(model.state_dict(), model_path)
+
+        replay = replay[-max_replay // 2:]
+
+        del observations
+        del rewards
+
+    env.close()
