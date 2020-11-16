@@ -143,8 +143,8 @@ if __name__ == "__main__":
 
     epsilon = 0.1
 
-    model_path = "../logs/model.pkl"
-    json_path = "../logs/episodes_rewards.json"
+    model_path = "../logs/pixel_model.pkl"
+    json_path = "../logs/pixel_episodes_rewards.json"
 
     env = gym.make('Breakout-v0')
 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     try:
         model.load_state_dict(torch.load(model_path))
-        model.load_state_dict(torch.load(model_path))
+        target_model.load_state_dict(torch.load(model_path))
     except:
         print("No model to load")
 
