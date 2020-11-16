@@ -13,35 +13,24 @@ from tqdm import tqdm
 class Model(torch.nn.Module):
     def __init__(self, n=4, channels=4):
         super(Model, self).__init__()
-        self.cnn1 = torch.nn.Conv2d(channels, 64, kernel_size=8, stride=4)
-        self.cnn2 = torch.nn.Conv2d(64, 64, kernel_size=4, stride=2)
-        self.cnn3 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        self.fc1 = torch.nn.Linear(3136, 512)
-        self.fc2 = torch.nn.Linear(512, n)
+        self.fc1 = torch.nn.Linear(channels * 128, 512)
+        self.fc2 = torch.nn.Linear(512, 512)
+        self.fc3 = torch.nn.Linear(512, 512)
+
+        self.fc4 = torch.nn.Linear(512, n)
 
         self.l_relu = torch.nn.LeakyReLU(0.1)
 
     def forward(self, x):
-        x = self.l_relu(self.cnn1(x))
-        x = self.l_relu(self.cnn2(x))
-        x = self.l_relu(self.cnn3(x))
-
-        x = torch.flatten(x, start_dim=1)
 
         x = self.l_relu(self.fc1(x))
+        x = self.l_relu(self.fc2(x))
+        x = self.l_relu(self.fc3(x))
 
-        y = self.fc2(x)
+        y = self.fc4(x)
 
         return y
-
-
-def to_gray(obs):
-    return obs.astype(np.float).mean(axis=-1)
-
-
-def resize(obs):
-    return cv2.resize(obs, dsize=(84, 84), interpolation=cv2.INTER_NEAREST)
 
 
 def get_state(l_obs, frames=4):
@@ -49,10 +38,7 @@ def get_state(l_obs, frames=4):
     while len(new_l_obs) < frames:
         new_l_obs.append(new_l_obs[-1])
 
-    state = np.zeros(new_l_obs[-1].shape + (frames,))
-
-    for i, obs in enumerate(new_l_obs):
-        state[..., i] = obs
+    state = np.concatenate(new_l_obs) / 255.0
 
     return state
 
@@ -66,7 +52,6 @@ def predict_action(model, state, device):
     model.eval()
     state = torch.from_numpy(state).float()
     state = state.to(device)
-    state = state.permute(2, 0, 1)
 
     state = state.unsqueeze(0)
 
@@ -84,7 +69,6 @@ def train_on_batch(
     batch = [replay[idx] for idx in indexes]
     states = np.array([a[0] for a in batch])
     future_states = np.array([a[1] for a in batch])
-
     actions = np.array([a[2] for a in batch])
     rewards = np.array([a[3] for a in batch])
     done = np.array([0 if a[4] else 1 for a in batch])
@@ -95,10 +79,6 @@ def train_on_batch(
     actions = torch.from_numpy(actions).long()
     rewards = torch.from_numpy(rewards).float()
     done = torch.from_numpy(done).float()
-
-    states = states.permute(0, 3, 1, 2)
-
-    future_states = future_states.permute(0, 3, 1, 2)
 
     states = states.to(device)
     future_states = future_states.to(device)
@@ -134,7 +114,7 @@ if __name__ == "__main__":
     replay = []
     episods_rewards = []
     render = False
-    max_replay = 60000
+    max_replay = 600000
     update_target_weight_freq = 10000
     current_ite = 1
 
@@ -145,10 +125,10 @@ if __name__ == "__main__":
 
     epsilon = 0.1
 
-    model_path = "../logs/pixel_model.pkl"
-    json_path = "../logs/pixel_episodes_rewards.json"
+    model_path = "../logs/ram_model.pkl"
+    json_path = "../logs/ram_episodes_rewards.json"
 
-    env = gym.make("Breakout-v0")
+    env = gym.make("Breakout-ram-v0")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Model(n=env.action_space.n).to(device)
@@ -160,7 +140,7 @@ if __name__ == "__main__":
     except:
         print("No model to load")
 
-    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     for i_episode in tqdm(range(n_episodes)):
 
@@ -169,7 +149,7 @@ if __name__ == "__main__":
 
         observation = env.reset()
 
-        observations.append(resize(to_gray(observation)))
+        observations.append(observation)
 
         for t in tqdm(range(episode_len)):
             current_ite += 1
@@ -177,6 +157,8 @@ if __name__ == "__main__":
                 env.render()
 
             state = get_state(observations)
+
+            print(state.shape, state)
 
             if (
                 random.uniform(0, 1) < epsilon
@@ -188,11 +170,9 @@ if __name__ == "__main__":
 
             observation, reward, done, info = env.step(action)
 
-            observations.append(resize(to_gray(observation)))
+            observations.append(observation)
 
             future_state = get_state(observations)
-
-            # cv2.imwrite("../logs/img_%s.jpg" % current_ite, future_state)
 
             replay.append((state, future_state, action, reward, done))
 

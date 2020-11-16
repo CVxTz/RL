@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     model_path = "../logs/pixel_model.pkl"
 
-    env = gym.make('Breakout-v0')
+    env = gym.make("Breakout-v0")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     target_model = Model(n=env.action_space.n).to(device)
