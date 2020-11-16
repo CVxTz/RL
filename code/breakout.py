@@ -1,30 +1,37 @@
 import json
 import random
 
+import cv2
 import gym
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from tqdm import tqdm
-import cv2
 
 
 class Model(torch.nn.Module):
-    def __init__(self, n=4, channels=3):
+    def __init__(self, n=4, channels=4):
         super(Model, self).__init__()
-        self.cnn1 = torch.nn.Conv2d(channels, 32, kernel_size=8, stride=4)
-        self.cnn2 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.cnn1 = torch.nn.Conv2d(channels, 64, kernel_size=8, stride=4)
+        self.cnn2 = torch.nn.Conv2d(64, 64, kernel_size=4, stride=2)
         self.cnn3 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        self.fc = torch.nn.Linear(3136, n)
+        self.fc1 = torch.nn.Linear(3136, 512)
+        self.fc2 = torch.nn.Linear(512, n)
+
+        self.l_relu = torch.nn.LeakyReLU(0.1)
 
     def forward(self, x):
-        x = F.relu(self.cnn1(x))
-        x = F.relu(self.cnn2(x))
-        x = F.relu(self.cnn3(x))
+        x = self.l_relu(self.cnn1(x))
+        x = self.l_relu(self.cnn2(x))
+        x = self.l_relu(self.cnn3(x))
+
         x = torch.flatten(x, start_dim=1)
-        y = self.fc(x)
+
+        x = self.l_relu(self.fc1(x))
+
+        y = self.fc2(x)
 
         return y
 
@@ -37,7 +44,7 @@ def resize(obs):
     return cv2.resize(obs, dsize=(84, 84), interpolation=cv2.INTER_NEAREST)
 
 
-def get_state(l_obs, frames=3):
+def get_state(l_obs, frames=4):
     new_l_obs = l_obs[-frames:]
     while len(new_l_obs) < frames:
         new_l_obs.append(new_l_obs[-1])
@@ -122,17 +129,16 @@ def train_on_batch(model, optimizer, device, replay, batch_size=32, gamma=0.99, 
 
 if __name__ == "__main__":
 
-
     replay = []
     episods_rewards = []
     render = False
-    max_replay = 40000
-    update_target_weight_freq = 50000
+    max_replay = 60000
+    update_target_weight_freq = 10000
     current_ite = 1
 
     frequency_update_model = 5
 
-    n_episodes = 100000
+    n_episodes = 1000000
     episode_len = 10000
 
     epsilon = 0.1
@@ -152,7 +158,7 @@ if __name__ == "__main__":
     except:
         print("No model to load")
 
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
     for i_episode in tqdm(range(n_episodes)):
 
