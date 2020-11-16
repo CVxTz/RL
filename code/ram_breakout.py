@@ -14,15 +14,20 @@ class Model(torch.nn.Module):
     def __init__(self, n=4, channels=4):
         super(Model, self).__init__()
 
-        self.fc1 = torch.nn.Linear(channels * 128, 512)
-        self.fc2 = torch.nn.Linear(512, 512)
-        self.fc3 = torch.nn.Linear(512, 512)
+        self.embed = torch.nn.Embedding(256, 16)
 
-        self.fc4 = torch.nn.Linear(512, n)
+        self.fc1 = torch.nn.Linear(channels * 128 * 16, 128)
+        self.fc2 = torch.nn.Linear(128, 128)
+        self.fc3 = torch.nn.Linear(128, 128)
+
+        self.fc4 = torch.nn.Linear(128, n)
 
         self.l_relu = torch.nn.LeakyReLU(0.1)
 
     def forward(self, x):
+        x = self.embed(x)
+
+        x = torch.flatten(x, start_dim=1)
 
         x = self.l_relu(self.fc1(x))
         x = self.l_relu(self.fc2(x))
@@ -38,7 +43,7 @@ def get_state(l_obs, frames=4):
     while len(new_l_obs) < frames:
         new_l_obs.append(new_l_obs[-1])
 
-    state = np.concatenate(new_l_obs) / 255.0
+    state = np.concatenate(new_l_obs).astype(int)
 
     return state
 
@@ -50,7 +55,7 @@ def save_rewards(episods_rewards, out_path="../logs/episodes_rewards.json"):
 
 def predict_action(model, state, device):
     model.eval()
-    state = torch.from_numpy(state).float()
+    state = torch.from_numpy(state).long()
     state = state.to(device)
 
     state = state.unsqueeze(0)
@@ -73,8 +78,8 @@ def train_on_batch(
     rewards = np.array([a[3] for a in batch])
     done = np.array([0 if a[4] else 1 for a in batch])
 
-    states = torch.from_numpy(states).float()
-    future_states = torch.from_numpy(future_states).float()
+    states = torch.from_numpy(states).long()
+    future_states = torch.from_numpy(future_states).long()
 
     actions = torch.from_numpy(actions).long()
     rewards = torch.from_numpy(rewards).float()
@@ -99,7 +104,7 @@ def train_on_batch(
     optimizer.zero_grad()
     loss = F.mse_loss(q_s_a, y)
 
-    if current_it % 1000 == 0:
+    if current_it % 5000 == 0:
         print("loss", loss.float(), "q_s_a", q_s_a[0].float())
 
     loss.backward()
@@ -114,16 +119,18 @@ if __name__ == "__main__":
     replay = []
     episods_rewards = []
     render = False
-    max_replay = 600000
+    max_replay = 1000000
     update_target_weight_freq = 10000
     current_ite = 1
 
-    frequency_update_model = 5
+    batch_size = 32
+
+    frequency_update_model = 4
 
     n_episodes = 1000000
     episode_len = 10000
 
-    epsilon = 0.1
+    epsilon_min = 0.1
 
     model_path = "../logs/ram_model.pkl"
     json_path = "../logs/ram_episodes_rewards.json"
@@ -144,6 +151,8 @@ if __name__ == "__main__":
 
     for i_episode in tqdm(range(n_episodes)):
 
+        epsilon = epsilon_min
+
         observations = []
         rewards = []
 
@@ -157,8 +166,6 @@ if __name__ == "__main__":
                 env.render()
 
             state = get_state(observations)
-
-            print(state.shape, state)
 
             if (
                 random.uniform(0, 1) < epsilon
@@ -184,24 +191,24 @@ if __name__ == "__main__":
             if current_ite % update_target_weight_freq == 0:
                 target_model.load_state_dict(model.state_dict())
 
-            if current_ite > 32 and current_ite % frequency_update_model == 0:
+            if current_ite > batch_size and current_ite % frequency_update_model == 0:
                 train_on_batch(
                     model,
                     optimizer,
                     device,
                     replay,
-                    batch_size=32,
+                    batch_size=batch_size,
                     gamma=0.99,
                     current_it=current_ite,
                 )
 
         episods_rewards.append(np.sum(rewards))
 
-        if i_episode % 10 == 0:
+        if i_episode % 100 == 0:
             save_rewards(episods_rewards, out_path=json_path)
             torch.save(model.state_dict(), model_path)
 
-        replay = replay[-max_replay // 2 :]
+        replay = [a for a in replay if random.uniform(0, 1) < 0.7]
 
         del observations
         del rewards
