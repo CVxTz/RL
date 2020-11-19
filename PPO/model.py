@@ -2,6 +2,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch
 from torch.distributions import Categorical
+import numpy as np
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -94,3 +95,37 @@ class ValueNetwork(torch.nn.Module):
         y = self(state)
 
         return y.item()
+
+
+def train_value_network(value_model, value_optimizer, data_loader, epochs=4):
+
+    epochs_losses = []
+
+    for i in range(epochs):
+
+        losses = []
+
+        for observations, _, _, _, rewards_to_go in data_loader:
+
+            observations = observations.float().to(device)
+            rewards_to_go = rewards_to_go.float().to(device)
+
+            value_optimizer.zero_grad()
+
+            values = value_model(observations)
+
+            loss = F.mse_loss(values, rewards_to_go)
+
+            loss.backward()
+
+            value_optimizer.step()
+
+            losses.append(loss.item())
+
+        mean_loss = np.mean(losses)
+
+        print(f"Value Network : Epoch {i} : loss = {mean_loss}")
+
+        epochs_losses.append(mean_loss)
+
+    return epochs_losses

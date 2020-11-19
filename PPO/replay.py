@@ -26,10 +26,12 @@ class Episode:
         self.gamma = gamma
         self.lambd = lambd
 
-    def append(self, observation, action, reward, value, log_probability):
+    def append(
+        self, observation, action, reward, value, log_probability, reward_scale=20
+    ):
         self.observations.append(observation)
         self.actions.append(action)
-        self.rewards.append(reward)
+        self.rewards.append(reward / reward_scale)
         self.values.append(value)
         self.log_probabilities.append(log_probability)
 

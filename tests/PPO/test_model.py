@@ -3,11 +3,14 @@ from pathlib import Path
 import numpy as np
 import gym
 import torch
+from torch.utils.data import DataLoader
+import torch.optim as optim
+import torch.nn.functional as F
 
 module_path = Path(sys.path[0]).parent.parent
 sys.path.append(str(module_path))
 
-from PPO.model import PolicyNetwork, ValueNetwork, device
+from PPO.model import PolicyNetwork, ValueNetwork, device, train_value_network
 from PPO.replay import Episode, History
 
 
@@ -24,7 +27,7 @@ def test_model_1():
 
     policy_model.to(device)
 
-    action = policy_model.sample_action(observation)
+    action, log_probability = policy_model.sample_action(observation)
 
     assert action in list(range(n_actions))
 
@@ -79,6 +82,8 @@ def test_model_3():
 
 def test_history_episode_model():
 
+    reward_scale = 20
+
     env = gym.make("LunarLander-v2")
     observation = env.reset()
 
@@ -114,6 +119,7 @@ def test_history_episode_model():
                 reward=reward,
                 value=value,
                 log_probability=log_probability,
+                reward_scale=reward_scale,
             )
 
             observation = new_observation
@@ -132,7 +138,7 @@ def test_history_episode_model():
 
     history.build_dataset()
 
-    assert abs(np.sum(history.rewards) - reward_sum) < 1e-5
+    assert abs(np.sum(history.rewards) - reward_sum / reward_scale) < 1e-5
 
     assert len(history.rewards) == ite
 
@@ -141,4 +147,66 @@ def test_history_episode_model():
     assert abs(np.std(history.advantages) - 1) <= 1e-3
 
 
-test_history_episode_model()
+def test_value_network():
+
+    env = gym.make("LunarLander-v2")
+    observation = env.reset()
+
+    n_actions = env.action_space.n
+    feature_dim = observation.size
+
+    n_epoch = 40
+
+    max_episodes = 10
+    max_timesteps = 100
+
+    reward_sum = 0
+    ite = 0
+
+    history = History()
+
+    for episode_i in range(max_episodes):
+
+        observation = env.reset()
+        episode = Episode()
+
+        for timestep in range(max_timesteps):
+
+            action = env.action_space.sample()
+
+            new_observation, reward, done, info = env.step(action)
+
+            episode.append(
+                observation=observation,
+                action=action,
+                reward=reward,
+                value=ite,
+                log_probability=np.log(1 / n_actions),
+            )
+
+            observation = new_observation
+
+            reward_sum += reward
+            ite += 1
+
+            if done:
+                episode.end_episode(last_value=np.random.uniform())
+                break
+
+            if timestep == max_timesteps - 1:
+                episode.end_episode(last_value=0)
+
+        history.add_episode(episode)
+
+    history.build_dataset()
+
+    value_model = ValueNetwork(in_dim=feature_dim).to(device)
+    value_optimizer = optim.Adam(value_model.parameters(), lr=0.001)
+
+    data_loader = DataLoader(history, batch_size=64, shuffle=True)
+
+    epochs_losses = train_value_network(
+        value_model, value_optimizer, data_loader, epochs=n_epoch
+    )
+
+    assert epochs_losses[0] / 10 > epochs_losses[-1]

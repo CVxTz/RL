@@ -43,21 +43,65 @@ def test_episode_1():
 
     episode = Episode(gamma=0.99, lambd=0.95)
 
-    episode.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=1, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=2, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=3, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=4, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=5, value=0, log_probability=-1)
+    reward_scale = 20
+
+    episode.append(
+        observation=0,
+        action=1,
+        reward=0,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=1,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=2,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=3,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=4,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=5,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
     episode.end_episode(last_value=0)
 
     expected_rewards_to_go = [
-        14.458431289499998,
-        14.604476049999999,
-        13.741895,
-        11.8605,
-        8.95,
-        5.0,
+        0.722921564475,
+        0.7302238025,
+        0.68709475,
+        0.593025,
+        0.4475,
+        0.25,
     ]
 
     assert episode.rewards_to_go == expected_rewards_to_go
@@ -67,21 +111,65 @@ def test_episode_2():
 
     episode = Episode(gamma=0.99, lambd=0.95)
 
-    episode.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=1, value=0, log_probability=-1)
-    episode.append(observation=0, action=1, reward=2, value=1, log_probability=-1)
-    episode.append(observation=0, action=1, reward=3, value=2, log_probability=-1)
-    episode.append(observation=0, action=1, reward=4, value=3, log_probability=-1)
-    episode.append(observation=0, action=1, reward=5, value=5, log_probability=-1)
+    reward_scale = 20
+
+    episode.append(
+        observation=0,
+        action=1,
+        reward=0,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=1,
+        value=0,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=2,
+        value=1,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=3,
+        value=2,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=4,
+        value=3,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
+    episode.append(
+        observation=0,
+        action=1,
+        reward=5,
+        value=5,
+        log_probability=-1,
+        reward_scale=reward_scale,
+    )
     episode.end_episode(last_value=5)
 
     expected_advantages = [
-        16.108053176078847,
-        17.127116614650557,
-        16.09475450786875,
-        13.944449237499999,
-        10.605474999999998,
-        4.949999999999999,
+        4.694519008033593,
+        4.991514096792763,
+        4.201503558525,
+        3.3189830500000004,
+        2.3381000000000007,
+        0.20000000000000018,
     ]
     assert episode.advantages == expected_advantages
 
@@ -118,6 +206,7 @@ def test_history_1():
 
 
 def test_history_episode():
+    reward_scale = 20
 
     env = gym.make("LunarLander-v2")
     observation = env.reset()
@@ -150,6 +239,7 @@ def test_history_episode():
                 reward=reward,
                 value=ite,
                 log_probability=np.log(1 / n_actions),
+                reward_scale=reward_scale,
             )
 
             observation = new_observation
@@ -168,7 +258,7 @@ def test_history_episode():
 
     history.build_dataset()
 
-    assert abs(np.sum(history.rewards) - reward_sum) < 1e-5
+    assert abs(np.sum(history.rewards) - reward_sum / reward_scale) < 1e-5
 
     assert len(history.rewards) == ite
 
