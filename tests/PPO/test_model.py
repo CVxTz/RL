@@ -10,7 +10,13 @@ import torch.nn.functional as F
 module_path = Path(sys.path[0]).parent.parent
 sys.path.append(str(module_path))
 
-from PPO.model import PolicyNetwork, ValueNetwork, device, train_value_network
+from PPO.model import (
+    PolicyNetwork,
+    ValueNetwork,
+    device,
+    train_value_network,
+    train_policy_network,
+)
 from PPO.replay import Episode, History
 
 
@@ -155,7 +161,7 @@ def test_value_network():
     n_actions = env.action_space.n
     feature_dim = observation.size
 
-    n_epoch = 40
+    n_epoch = 4
 
     max_episodes = 10
     max_timesteps = 100
@@ -209,4 +215,69 @@ def test_value_network():
         value_model, value_optimizer, data_loader, epochs=n_epoch
     )
 
-    assert epochs_losses[0] / 10 > epochs_losses[-1]
+    assert epochs_losses[0] > epochs_losses[-1]
+
+
+def test_policy_network():
+
+    env = gym.make("LunarLander-v2")
+    observation = env.reset()
+
+    n_actions = env.action_space.n
+    feature_dim = observation.size
+
+    n_epoch = 4
+
+    max_episodes = 10
+    max_timesteps = 100
+
+    reward_sum = 0
+    ite = 0
+
+    history = History()
+
+    for episode_i in range(max_episodes):
+
+        observation = env.reset()
+        episode = Episode()
+
+        for timestep in range(max_timesteps):
+
+            action = env.action_space.sample()
+
+            new_observation, reward, done, info = env.step(action)
+
+            episode.append(
+                observation=observation,
+                action=action,
+                reward=reward,
+                value=ite,
+                log_probability=np.log(1 / n_actions),
+            )
+
+            observation = new_observation
+
+            reward_sum += reward
+            ite += 1
+
+            if done:
+                episode.end_episode(last_value=np.random.uniform())
+                break
+
+            if timestep == max_timesteps - 1:
+                episode.end_episode(last_value=0)
+
+        history.add_episode(episode)
+
+    history.build_dataset()
+
+    policy_model = PolicyNetwork(in_dim=feature_dim).to(device)
+    policy_optimizer = optim.Adam(policy_model.parameters(), lr=0.01)
+
+    data_loader = DataLoader(history, batch_size=64, shuffle=True)
+
+    epochs_losses = train_policy_network(
+        policy_model, policy_optimizer, data_loader, epochs=n_epoch
+    )
+
+    assert epochs_losses[0] > epochs_losses[-1]
