@@ -205,6 +205,42 @@ def test_history_1():
     assert abs(np.std(history.advantages) - 1) <= 1e-3
 
 
+def test_history_2():
+
+    episode1 = Episode(gamma=0.99, lambd=0.95)
+    episode1.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
+    episode1.append(observation=0, action=1, reward=1, value=0, log_probability=-1)
+    episode1.append(observation=0, action=1, reward=2, value=1, log_probability=-1)
+    episode1.append(observation=0, action=1, reward=3, value=2, log_probability=-1)
+    episode1.append(observation=0, action=1, reward=4, value=3, log_probability=-1)
+    episode1.append(observation=0, action=1, reward=5, value=5, log_probability=-1)
+    episode1.end_episode(last_value=5)
+
+    episode2 = Episode(gamma=0.99, lambd=0.95)
+    episode2.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
+    episode2.append(observation=0, action=1, reward=-1, value=0, log_probability=-1)
+    episode2.append(observation=0, action=1, reward=-2, value=-1, log_probability=-1)
+    episode2.append(observation=0, action=1, reward=3, value=2, log_probability=-1)
+    episode2.append(observation=0, action=1, reward=-4, value=-3, log_probability=-1)
+    episode2.end_episode(last_value=0)
+
+    history = History()
+
+    history.add_episode(episode1)
+    history.add_episode(episode2)
+
+    history.build_dataset()
+
+    history.free_memory()
+
+    assert len(history) == 0
+    assert len(history.rewards) == 0
+    assert len(history.advantages) == 0
+    assert len(history.log_probabilities) == 0
+    assert len(history.rewards_to_go) == 0
+    assert len(history.episodes) == 0
+
+
 def test_history_episode():
     reward_scale = 20
 
@@ -283,5 +319,5 @@ def test_history_episode():
             len([a for a in history.actions if a == 0])
             - len(history.actions) / n_actions
         )
-        < 20
+        < 30
     )

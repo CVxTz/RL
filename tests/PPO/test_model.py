@@ -58,7 +58,7 @@ def test_model_2():
 
     assert list(probs.size()) == [10, n_actions]
 
-    assert probs[0, :].sum().item() == 1
+    assert abs(probs[0, :].sum().item() - 1) < 1e-3
 
 
 def test_model_3():
