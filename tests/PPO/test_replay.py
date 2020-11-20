@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
-import numpy as np
-import gym
 
+import gym
+import numpy as np
 
 module_path = Path(sys.path[0]).parent.parent
 sys.path.append(str(module_path))
@@ -11,7 +11,6 @@ from PPO.replay import cumulative_sum, Episode, History
 
 
 def test_cumulative_sum_1():
-
     array = [0, 1, 2, 3, 4, 5]
 
     cumulative_array = cumulative_sum(array)
@@ -22,7 +21,6 @@ def test_cumulative_sum_1():
 
 
 def test_cumulative_sum_2():
-
     array = [0, 1, 2, 3, 4, 5]
 
     cumulative_array = cumulative_sum(array, gamma=0.99)
@@ -40,7 +38,6 @@ def test_cumulative_sum_2():
 
 
 def test_episode_1():
-
     episode = Episode(gamma=0.99, lambd=0.95)
 
     reward_scale = 20
@@ -108,7 +105,6 @@ def test_episode_1():
 
 
 def test_episode_2():
-
     episode = Episode(gamma=0.99, lambd=0.95)
 
     reward_scale = 20
@@ -175,7 +171,6 @@ def test_episode_2():
 
 
 def test_history_1():
-
     episode1 = Episode(gamma=0.99, lambd=0.95)
     episode1.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
     episode1.append(observation=0, action=1, reward=1, value=0, log_probability=-1)
@@ -206,7 +201,6 @@ def test_history_1():
 
 
 def test_history_2():
-
     episode1 = Episode(gamma=0.99, lambd=0.95)
     episode1.append(observation=0, action=1, reward=0, value=0, log_probability=-1)
     episode1.append(observation=0, action=1, reward=1, value=0, log_probability=-1)

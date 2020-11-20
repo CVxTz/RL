@@ -1,11 +1,9 @@
-import sys
-from pathlib import Path
-import numpy as np
 import gym
-import torch
-from torch.utils.data import DataLoader
+import numpy as np
 import torch.optim as optim
-import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from PPO.model import (
     PolicyNetwork,
@@ -17,9 +15,10 @@ from PPO.model import (
 from PPO.replay import Episode, History
 
 
-def main():
+def main(env_name="LunarLander-v2", reward_scale=20.0, clip=0.2, log_dir="../logs"):
+    writer = SummaryWriter(log_dir=log_dir, filename_suffix=env_name, comment=env_name)
 
-    env = gym.make("LunarLander-v2")
+    env = gym.make(env_name)
     observation = env.reset()
 
     n_actions = env.action_space.n
@@ -36,13 +35,16 @@ def main():
     max_episodes = 20
     max_timesteps = 300
 
-    max_iterations = 10000
+    batch_size = 32
 
-    reward_scale = 20
+    max_iterations = 10000
 
     history = History()
 
-    for iteration in range(max_iterations):
+    epoch_ite = 0
+    episode_ite = 0
+
+    for _ in tqdm(range(max_iterations)):
 
         for episode_i in range(max_episodes):
 
@@ -75,22 +77,38 @@ def main():
                     value = value_model.state_value(observation)
                     episode.end_episode(last_value=value)
 
+            episode_ite += 1
+            writer.add_scalar(
+                "Average Episode Reward",
+                reward_scale * np.sum(episode.rewards),
+                episode_ite,
+            )
+            writer.add_scalar(
+                "Average Probabilities",
+                np.exp(np.mean(episode.log_probabilities)),
+                episode_ite,
+            )
+
             history.add_episode(episode)
 
         history.build_dataset()
-        data_loader = DataLoader(history, batch_size=64, shuffle=True)
+        data_loader = DataLoader(history, batch_size=batch_size, shuffle=True)
 
-        train_policy_network(
-            policy_model, policy_optimizer, data_loader, epochs=n_epoch
+        policy_loss = train_policy_network(
+            policy_model, policy_optimizer, data_loader, epochs=n_epoch, clip=clip
         )
 
-        train_value_network(value_model, value_optimizer, data_loader, epochs=n_epoch)
+        value_loss = train_value_network(
+            value_model, value_optimizer, data_loader, epochs=n_epoch
+        )
 
-        print(iteration, "Mean reward", reward_scale * np.sum(history.rewards) / max_episodes)
+        for p_l, v_l in zip(policy_loss, value_loss):
+            epoch_ite += 1
+            writer.add_scalar("Policy Loss", p_l, epoch_ite)
+            writer.add_scalar("Value Loss", v_l, epoch_ite)
 
         history.free_memory()
 
 
 if __name__ == "__main__":
-
-    main()
+    main(reward_scale=1, clip=0.2, env_name="Breakout-ram-v0")

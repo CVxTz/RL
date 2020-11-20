@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
-import numpy as np
+
 import gym
+import numpy as np
 import torch
-from torch.utils.data import DataLoader
 import torch.optim as optim
-import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 module_path = Path(sys.path[0]).parent.parent
 sys.path.append(str(module_path))
@@ -21,7 +21,6 @@ from PPO.replay import Episode, History
 
 
 def test_model_1():
-
     env = gym.make("LunarLander-v2")
 
     observation = env.reset()
@@ -39,7 +38,6 @@ def test_model_1():
 
 
 def test_model_2():
-
     env = gym.make("LunarLander-v2")
 
     observation = env.reset()
@@ -62,7 +60,6 @@ def test_model_2():
 
 
 def test_model_3():
-
     env = gym.make("LunarLander-v2")
 
     observation = env.reset()
@@ -87,7 +84,6 @@ def test_model_3():
 
 
 def test_history_episode_model():
-
     reward_scale = 20
 
     env = gym.make("LunarLander-v2")
@@ -154,7 +150,6 @@ def test_history_episode_model():
 
 
 def test_value_network():
-
     env = gym.make("LunarLander-v2")
     observation = env.reset()
 
@@ -219,7 +214,6 @@ def test_value_network():
 
 
 def test_policy_network():
-
     env = gym.make("LunarLander-v2")
     observation = env.reset()
 

@@ -1,9 +1,7 @@
-import torch.nn.functional as F
-import torch.optim as optim
-import torch
-from torch.distributions import Categorical
 import numpy as np
-
+import torch
+import torch.nn.functional as F
+from torch.distributions import Categorical
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -98,7 +96,6 @@ class ValueNetwork(torch.nn.Module):
 
 
 def train_value_network(value_model, value_optimizer, data_loader, epochs=4):
-
     epochs_losses = []
 
     for i in range(epochs):
@@ -106,7 +103,6 @@ def train_value_network(value_model, value_optimizer, data_loader, epochs=4):
         losses = []
 
         for observations, _, _, _, rewards_to_go in data_loader:
-
             observations = observations.float().to(device)
             rewards_to_go = rewards_to_go.float().to(device)
 
@@ -124,15 +120,12 @@ def train_value_network(value_model, value_optimizer, data_loader, epochs=4):
 
         mean_loss = np.mean(losses)
 
-        print(f"Value Network : Epoch {i} : loss = {mean_loss}")
-
         epochs_losses.append(mean_loss)
 
     return epochs_losses
 
 
 def ac_loss(new_log_probabilities, old_log_probabilities, advantages, epsilon_clip=0.2):
-
     probability_ratios = torch.exp(new_log_probabilities - old_log_probabilities)
     clipped_probabiliy_ratios = torch.clamp(
         probability_ratios, 1 - epsilon_clip, 1 + epsilon_clip
@@ -144,8 +137,9 @@ def ac_loss(new_log_probabilities, old_log_probabilities, advantages, epsilon_cl
     return -torch.min(surrogate_1, surrogate_2)
 
 
-def train_policy_network(policy_model, policy_optimizer, data_loader, epochs=4):
-
+def train_policy_network(
+    policy_model, policy_optimizer, data_loader, epochs=4, clip=0.2
+):
     epochs_losses = []
 
     c1 = 0.01
@@ -155,7 +149,6 @@ def train_policy_network(policy_model, policy_optimizer, data_loader, epochs=4):
         losses = []
 
         for observations, actions, advantages, log_probabilities, _ in data_loader:
-
             observations = observations.float().to(device)
             actions = actions.long().to(device)
             advantages = advantages.float().to(device)
@@ -172,7 +165,7 @@ def train_policy_network(policy_model, policy_optimizer, data_loader, epochs=4):
                     new_log_probabilities,
                     old_log_probabilities,
                     advantages,
-                    epsilon_clip=0.2,
+                    epsilon_clip=clip,
                 ).mean()
                 - c1 * entropy.mean()
             )
@@ -184,8 +177,6 @@ def train_policy_network(policy_model, policy_optimizer, data_loader, epochs=4):
             losses.append(loss.item())
 
         mean_loss = np.mean(losses)
-
-        print(f"Policy Network : Epoch {i} : loss = {mean_loss}")
 
         epochs_losses.append(mean_loss)
 

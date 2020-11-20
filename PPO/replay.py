@@ -36,7 +36,6 @@ class Episode:
         self.log_probabilities.append(log_probability)
 
     def end_episode(self, last_value):
-
         rewards = np.array(self.rewards + [last_value])
         values = np.array(self.values + [last_value])
 
@@ -73,7 +72,6 @@ class History(Dataset):
         del self.log_probabilities[:]
 
     def add_episode(self, episode):
-
         self.episodes.append(episode)
 
     def build_dataset(self):
@@ -105,7 +103,6 @@ class History(Dataset):
         return len(self.observations)
 
     def __getitem__(self, idx):
-
         return (
             self.observations[idx],
             self.actions[idx],
