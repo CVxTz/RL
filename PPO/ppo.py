@@ -43,7 +43,7 @@ def main(
     n_epoch = 4
 
     max_episodes = 20
-    max_timesteps = 300
+    max_timesteps = 400
 
     batch_size = 32
 
@@ -55,6 +55,16 @@ def main(
     episode_ite = 0
 
     for ite in tqdm(range(max_iterations)):
+
+        if ite % 50 == 0:
+            torch.save(
+                policy_model.state_dict(),
+                Path(log_dir) / (env_name + f"_{str(ite)}_policy.pth"),
+            )
+            torch.save(
+                value_model.state_dict(),
+                Path(log_dir) / (env_name + f"_{str(ite)}_value.pth"),
+            )
 
         for episode_i in range(max_episodes):
 
@@ -114,16 +124,6 @@ def main(
             value_model, value_optimizer, data_loader, epochs=n_epoch
         )
 
-        if ite % 50 == 0:
-            torch.save(
-                policy_model.state_dict(),
-                Path(log_dir) / (env_name + f"_{str(ite)}_policy.pth"),
-            )
-            torch.save(
-                value_model.state_dict(),
-                Path(log_dir) / (env_name + f"_{str(ite)}_value.pth"),
-            )
-
         for p_l, v_l in zip(policy_loss, value_loss):
             epoch_ite += 1
             writer.add_scalar("Policy Loss", p_l, epoch_ite)
@@ -137,8 +137,8 @@ if __name__ == "__main__":
     main(
         reward_scale=20.0,
         clip=0.2,
-        env_name="CartPole-v1",
+        env_name="LunarLander-v2",
         learning_rate=0.001,
         state_scale=1.0,
-        log_dir="logs/Cart"
+        log_dir="logs/Lunar"
     )

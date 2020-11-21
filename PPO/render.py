@@ -35,8 +35,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--policy_path")
     parser.add_argument("--env_name")
-    parser.add_argument("--n_episodes", type=int, default=10)
-    parser.add_argument("--max_timesteps", type=int, default=300)
+    parser.add_argument("--n_episodes", type=int, default=5)
+    parser.add_argument("--max_timesteps", type=int, default=400)
 
     parser.add_argument("--out_gif")
 
