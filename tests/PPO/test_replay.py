@@ -1,11 +1,5 @@
-import sys
-from pathlib import Path
-
 import gym
 import numpy as np
-
-module_path = Path(sys.path[0]).parent.parent
-sys.path.append(str(module_path))
 
 from PPO.replay import cumulative_sum, Episode, History
 

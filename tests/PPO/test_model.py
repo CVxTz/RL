@@ -1,14 +1,8 @@
-import sys
-from pathlib import Path
-
 import gym
 import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-
-module_path = Path(sys.path[0]).parent.parent
-sys.path.append(str(module_path))
 
 from PPO.model import (
     PolicyNetwork,

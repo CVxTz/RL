@@ -1,11 +1,12 @@
+from pathlib import Path
+
 import gym
 import numpy as np
+import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import torch
-from pathlib import Path
 
 from PPO.model import (
     PolicyNetwork,
@@ -29,7 +30,6 @@ def main(
 
     env = gym.make(env_name)
     observation = env.reset()
-    env.render()
 
     n_actions = env.action_space.n
     feature_dim = observation.size
@@ -114,9 +114,15 @@ def main(
             value_model, value_optimizer, data_loader, epochs=n_epoch
         )
 
-        if ite % 15 == 0:
-            torch.save(policy_model.state_dict(), Path(log_dir) / (env_name + str(ite) + "_policy.pth"))
-            torch.save(value_model.state_dict(), Path(log_dir) / (env_name + str(ite) + "_value.pth"))
+        if ite % 50 == 0:
+            torch.save(
+                policy_model.state_dict(),
+                Path(log_dir) / (env_name + f"_{str(ite)}_policy.pth"),
+            )
+            torch.save(
+                value_model.state_dict(),
+                Path(log_dir) / (env_name + f"_{str(ite)}_value.pth"),
+            )
 
         for p_l, v_l in zip(policy_loss, value_loss):
             epoch_ite += 1
@@ -134,4 +140,5 @@ if __name__ == "__main__":
         env_name="CartPole-v1",
         learning_rate=0.001,
         state_scale=1.0,
+        log_dir="logs/Cart"
     )

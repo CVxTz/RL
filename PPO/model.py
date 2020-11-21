@@ -48,6 +48,20 @@ class PolicyNetwork(torch.nn.Module):
 
         return action.item(), log_probability.item()
 
+    def best_action(self, state):
+
+        if not state is torch.Tensor:
+            state = torch.from_numpy(state).float().to(device)
+
+        if len(state.size()) == 1:
+            state = state.unsqueeze(0)
+
+        y = self(state).squeeze()
+
+        action = torch.argmax(y)
+
+        return action.item()
+
     def evaluate_actions(self, states, actions):
         y = self(states)
 
